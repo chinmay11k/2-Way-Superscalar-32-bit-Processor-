@@ -30,13 +30,13 @@ reg [31:0]MEM[0:127];
 reg [31:0]PC;
 
 //1st latches IF_ID
-reg [31:0] IF_ID_IR_0,IF_ID_IR_1,IF_ID_NPC_0,IF_ID_NPC_1;
+reg [31:0] IF_ID_IR_0,IF_ID_IR_1,IF_ID_PC_0,IF_ID_PC_1;
 
 //2nd latches ID_EX
-reg [31:0] ID_EX_IR_A,ID_EX_NPC_A,ID_EX_X0_A,ID_EX_X1_A,ID_EX_IMM_A;// X0,X1 are data stored in rs1,rs2
+reg [31:0] ID_EX_IR_A,ID_EX_PC_A,ID_EX_X0_A,ID_EX_X1_A,ID_EX_IMM_A;// X0,X1 are data stored in rs1,rs2
 reg [2:0] ID_EX_TYPE_A;//for pipe A which is for ALU oparations and branch and jump oparations 
 reg [2:0] ID_EX_TYPE_0;
-reg [31:0] ID_EX_IR_B,ID_EX_NPC_B,ID_EX_X0_B,ID_EX_X1_B,ID_EX_IMM_B;// X0,X1 are data stored in rs1,rs2
+reg [31:0] ID_EX_IR_B,ID_EX_PC_B,ID_EX_X0_B,ID_EX_X1_B,ID_EX_IMM_B;// X0,X1 are data stored in rs1,rs2
 reg [2:0] ID_EX_TYPE_B;//for pipe A which is for ALU oparations and Memory oparations 
 reg [2:0] ID_EX_TYPE_1;
 reg [1:0] FU_type_X0; 
@@ -92,7 +92,6 @@ parameter
     BGE  = 6'b011011,
     //jump type 
     J    = 6'b100000,
-    JAL  = 6'b100001,
     
     //no oparations 
     NOP  = 6'b111111;
@@ -113,19 +112,30 @@ JUMP=3'b101,
 Nop=3'b111,
 Nop_IR=32'hfc000000;
 
-
+reg branched;
 reg stall_IF,stall_ID,stall_Ex;
 reg stall_II;//stall because of  identical instruction
-reg flush;
-reg branched;
-reg hazard_stall;
+
+reg ID_ID_hazard;
+reg ID_EX_hazard;
+reg ID_MEM_hazard;
+reg ID_WB_hazard;
+
+wire hazard_ID_stall;
+wire hazard_ID_unstall;
+wire hazard_stall;
+
+assign hazard_ID_stall   = ID_ID_hazard & ~ID_WB_hazard;
+assign hazard_ID_unstall = ID_ID_hazard &  ID_WB_hazard & ID_EX_hazard;
+
+assign hazard_stall =    ID_MEM_hazard &    ~ID_ID_hazard;
 
 //stall logic 
 always@(*)
 begin
-stall_IF =hazard_stall|stall_II;
-stall_ID =hazard_stall|stall_II;
-stall_Ex =hazard_stall;
+stall_IF =hazard_stall|stall_II|hazard_ID_stall|hazard_ID_unstall;
+stall_ID =hazard_stall|hazard_ID_stall|hazard_ID_unstall;//|stall_II;
+stall_Ex =0;//hazard_stall;
 end
 // Instruction fetch stage 
 always@(posedge clk1)
@@ -133,35 +143,39 @@ if (reset) begin
         PC <= 32'd0;
         IF_ID_IR_0 <= Nop_IR;
         IF_ID_IR_1 <= Nop_IR;
-        IF_ID_NPC_0 <= 32'd0;
-        IF_ID_NPC_1 <= 32'd0;
-        branched <= 1'b0;
+        IF_ID_PC_0 <= 32'd0;
+        IF_ID_PC_1 <= 32'd0;
+        ID_ID_hazard=1'b0;
+        ID_EX_hazard=1'b0;
+        ID_MEM_hazard=1'b0;
+        ID_WB_hazard=1'b0;
+//        branched <= 1'b0;
     end
     else if(stall_IF==0)
     begin
         if(branched==1)//cheaking is we require to branching in prev instruction
             begin
-                  IF_ID_NPC_0<=EX_MEM_ALUout_A+2;
-                  IF_ID_NPC_1<=EX_MEM_ALUout_A+3;
+                  IF_ID_PC_0<=EX_MEM_ALUout_A;
+                  IF_ID_PC_1<=EX_MEM_ALUout_A+1;
                   PC<=EX_MEM_ALUout_A;
-                  flush<=1;
+                  branched<=1;
                   IF_ID_IR_0<= MEM[EX_MEM_ALUout_A];
                   IF_ID_IR_1<= MEM[EX_MEM_ALUout_A+1];
                 end
         else
             begin
-                IF_ID_NPC_0<= PC+2;
-                IF_ID_NPC_1<= PC+3;
+                IF_ID_PC_0<= PC;
+                IF_ID_PC_1<= PC+1;
                 PC<= PC+2;
-                flush<=0;
+                branched<=0;
                 IF_ID_IR_0<= MEM[PC];
                 IF_ID_IR_1<= MEM[PC+1];
                 end
      end   
  else 
  begin
- IF_ID_NPC_0<=IF_ID_NPC_0;
- IF_ID_NPC_1<=IF_ID_NPC_1 ;
+ IF_ID_PC_0<=IF_ID_PC_0;
+ IF_ID_PC_1<=IF_ID_PC_1 ;
  PC<= PC;
  IF_ID_IR_0<=IF_ID_IR_0;
  IF_ID_IR_1<=IF_ID_IR_1;
@@ -197,7 +211,6 @@ always@(*)
                           BGE:ID_EX_TYPE_0 <=  BRANCH;
                          //jump
                           J:ID_EX_TYPE_0 <=  JUMP;
-                          JAL:ID_EX_TYPE_0 <=  JUMP;
                          //nop
                           NOP: ID_EX_TYPE_0 <=  Nop;
                       default: 
@@ -229,7 +242,6 @@ always@(*)
                           BGE:ID_EX_TYPE_1<=  BRANCH;
                          //jump
                           J:ID_EX_TYPE_1 <=  JUMP;
-                          JAL:ID_EX_TYPE_1 <=  JUMP;
                          //nop
                           NOP: ID_EX_TYPE_1 <=  Nop;
                       default: 
@@ -272,37 +284,37 @@ begin
     ID_EX_TYPE_B <= Nop;
     stall_II     <= 1'b0;
 end
-else if(flush==1)
+else if(branched==1)
 begin
 ID_EX_IR_A<=Nop_IR;
-ID_EX_NPC_A<=ID_EX_NPC_A;
+ID_EX_PC_A<=ID_EX_PC_A;
 ID_EX_X0_A<=32'd0;
 ID_EX_X1_A<=32'd0; 
 ID_EX_IMM_A<=32'd0;
 ID_EX_TYPE_A<=Nop;
 
 ID_EX_IR_B<=Nop_IR;
-ID_EX_NPC_B<=ID_EX_NPC_B;
+ID_EX_PC_B<=ID_EX_PC_B;
 ID_EX_X0_B<=32'd0;
 ID_EX_X1_B<=32'd0;
 ID_EX_IMM_B<=32'd0;
 ID_EX_TYPE_B<=Nop;
 
 end
-else if(stall_ID==0)
+else if(stall_ID==0 & stall_II==0)
         begin
          case (FU_type_X0)
             ALUtype:begin
                         case(FU_type_X1)
                             ALUtype:begin
                                    ID_EX_IR_A<=IF_ID_IR_0;
-                                   ID_EX_NPC_A<=IF_ID_NPC_0;
+                                   ID_EX_PC_A<=IF_ID_PC_0;
                                    ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                    ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                    ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                    
                                    ID_EX_IR_B<=IF_ID_IR_1;
-                                   ID_EX_NPC_B<=IF_ID_NPC_1;
+                                   ID_EX_PC_B<=IF_ID_PC_1;
                                    ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                    ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
                                    ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
@@ -313,13 +325,13 @@ else if(stall_ID==0)
                                     
                             MEMtype:begin
                                    ID_EX_IR_A<=IF_ID_IR_0;
-                                   ID_EX_NPC_A<=IF_ID_NPC_0;
+                                   ID_EX_PC_A<=IF_ID_PC_0;
                                    ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                    ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                    ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                    
                                    ID_EX_IR_B<=IF_ID_IR_1;
-                                   ID_EX_NPC_B<=IF_ID_NPC_1;
+                                   ID_EX_PC_B<=IF_ID_PC_1;
                                    ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                    ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
                                    ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};      
@@ -330,13 +342,13 @@ else if(stall_ID==0)
                                                                         
                             B_Jtype:begin
                                        ID_EX_IR_A<=IF_ID_IR_1;
-                                       ID_EX_NPC_A<=IF_ID_NPC_1;
+                                       ID_EX_PC_A<=IF_ID_PC_1;
                                        ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                        ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
                                        ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
                                        
                                        ID_EX_IR_B<=IF_ID_IR_0;
-                                       ID_EX_NPC_B<=IF_ID_NPC_0;
+                                       ID_EX_PC_B<=IF_ID_PC_0;
                                        ID_EX_X0_B<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                        ID_EX_X1_B<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]];
                                        ID_EX_IMM_B<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};         
@@ -345,14 +357,14 @@ else if(stall_ID==0)
                                      end
                             default:begin
                                         ID_EX_IR_A<=IF_ID_IR_0;
-                                        ID_EX_NPC_A<=IF_ID_NPC_0;
+                                        ID_EX_PC_A<=IF_ID_PC_0;
                                         ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                         ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                         ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                         ID_EX_TYPE_A<=ID_EX_TYPE_0;
 
                                         ID_EX_IR_B<=Nop_IR;
-                                        ID_EX_NPC_B<=ID_EX_NPC_B;
+                                        ID_EX_PC_B<=ID_EX_PC_B;
                                         ID_EX_X0_B<=32'd0;
                                         ID_EX_X1_B<=32'd0;
                                         ID_EX_IMM_B<=32'd0;
@@ -366,13 +378,13 @@ else if(stall_ID==0)
                         case(FU_type_X1)
                                         ALUtype:begin
                                         ID_EX_IR_A<=IF_ID_IR_1;
-                                        ID_EX_NPC_A<=IF_ID_NPC_1;
+                                        ID_EX_PC_A<=IF_ID_PC_1;
                                         ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                         ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
                                         ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
                                         
                                         ID_EX_IR_B<=IF_ID_IR_0;
-                                        ID_EX_NPC_B<=IF_ID_NPC_0;
+                                        ID_EX_PC_B<=IF_ID_PC_0;
                                         ID_EX_X0_B<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                         ID_EX_X1_B<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]];
                                         ID_EX_IMM_B<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};                
@@ -387,23 +399,30 @@ else if(stall_ID==0)
 //                                                stall_ID<=1;
                                                 stall_II<=1;
                                                 ID_EX_IR_B<=IF_ID_IR_0;
-                                                ID_EX_NPC_B<=IF_ID_NPC_0;
+                                                ID_EX_PC_B<=IF_ID_PC_0;
                                                 ID_EX_X0_B<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                                 ID_EX_X1_B<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]];
                                                 ID_EX_IMM_B<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                                 ID_EX_TYPE_B<=ID_EX_TYPE_0;    
+                                                   
+                                                ID_EX_IR_A<=Nop_IR;
+                                                ID_EX_PC_A<=ID_EX_PC_A;
+                                                ID_EX_X0_A<=32'd0;
+                                                ID_EX_X1_A<=32'd0; 
+                                                ID_EX_IMM_A<=32'd0;
+                                                ID_EX_TYPE_A<=Nop;
 
                                                  end
                                                                                     
                                         B_Jtype:begin
                                         ID_EX_IR_A<=IF_ID_IR_1;
-                                        ID_EX_NPC_A<=IF_ID_NPC_1;
+                                        ID_EX_PC_A<=IF_ID_PC_1;
                                         ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                         ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
                                         ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
                                         
                                         ID_EX_IR_B<=IF_ID_IR_0;
-                                        ID_EX_NPC_B<=IF_ID_NPC_0;
+                                        ID_EX_PC_B<=IF_ID_PC_0;
                                         ID_EX_X0_B<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                         ID_EX_X1_B<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]];
                                         ID_EX_IMM_B<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};                
@@ -412,14 +431,14 @@ else if(stall_ID==0)
                                                  end
                                 default:begin
                                         ID_EX_IR_A<=Nop_IR;
-                                        ID_EX_NPC_A<=ID_EX_NPC_A;
+                                        ID_EX_PC_A<=ID_EX_PC_A;
                                         ID_EX_X0_A<=32'd0;
                                         ID_EX_X1_A<=32'd0; 
                                         ID_EX_IMM_A<=32'd0;
                                         ID_EX_TYPE_A<=Nop;
                                         
                                         ID_EX_IR_B<=IF_ID_IR_0;
-                                        ID_EX_NPC_B<=IF_ID_NPC_0;
+                                        ID_EX_PC_B<=IF_ID_PC_0;
                                         ID_EX_X0_B<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                         ID_EX_X1_B<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]];
                                         ID_EX_IMM_B<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};                
@@ -434,13 +453,13 @@ else if(stall_ID==0)
                                         case(FU_type_X1)
                                         ALUtype:begin
                                                  ID_EX_IR_A<=IF_ID_IR_0;
-                                                 ID_EX_NPC_A<=IF_ID_NPC_0;
+                                                 ID_EX_PC_A<=IF_ID_PC_0;
                                                  ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                                  ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                                  ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                                  
                                                  ID_EX_IR_B<=IF_ID_IR_1;
-                                                 ID_EX_NPC_B<=IF_ID_NPC_1;
+                                                 ID_EX_PC_B<=IF_ID_PC_1;
                                                  ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                                  ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
                                                  ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};      
@@ -451,13 +470,13 @@ else if(stall_ID==0)
                                                 
                                         MEMtype:begin
                                                   ID_EX_IR_A<=IF_ID_IR_0;
-                                                  ID_EX_NPC_A<=IF_ID_NPC_0;
+                                                  ID_EX_PC_A<=IF_ID_PC_0;
                                                   ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                                   ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                                   ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                                   
                                                   ID_EX_IR_B<=IF_ID_IR_1;
-                                                  ID_EX_NPC_B<=IF_ID_NPC_1;
+                                                  ID_EX_PC_B<=IF_ID_PC_1;
                                                   ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                                   ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
                                                   ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};      
@@ -472,23 +491,30 @@ else if(stall_ID==0)
                                                     stall_II<=1;
             
                                                     ID_EX_IR_A<=IF_ID_IR_0;
-                                                    ID_EX_NPC_A<=IF_ID_NPC_0;
+                                                    ID_EX_PC_A<=IF_ID_PC_0;
                                                     ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                                     ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                                     ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                                     ID_EX_TYPE_A<=ID_EX_TYPE_0;    
 
+                                                    ID_EX_IR_B<=Nop_IR;
+                                                    ID_EX_PC_B<=ID_EX_PC_B;
+                                                    ID_EX_X0_B<=32'd0;
+                                                    ID_EX_X1_B<=32'd0;
+                                                    ID_EX_IMM_B<=32'd0;
+                                                    ID_EX_TYPE_B<=Nop;                          
+
                                                  end
                                                 default:begin
                                                              ID_EX_IR_A<=IF_ID_IR_0;
-                                                             ID_EX_NPC_A<=IF_ID_NPC_0;
+                                                             ID_EX_PC_A<=IF_ID_PC_0;
                                                              ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
                                                              ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
                                                              ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
                                                              ID_EX_TYPE_A<=ID_EX_TYPE_0;
 
                                                              ID_EX_IR_B<=Nop_IR;
-                                                             ID_EX_NPC_B<=ID_EX_NPC_B;
+                                                             ID_EX_PC_B<=ID_EX_PC_B;
                                                              ID_EX_X0_B<=32'd0;
                                                              ID_EX_X1_B<=32'd0;
                                                              ID_EX_IMM_B<=32'd0;
@@ -502,14 +528,14 @@ else if(stall_ID==0)
                      case(FU_type_X1)
                  ALUtype:begin
                          ID_EX_IR_A<=IF_ID_IR_1;
-                         ID_EX_NPC_A<=IF_ID_NPC_1;
+                         ID_EX_PC_A<=IF_ID_PC_1;
                          ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                          ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
                          ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
                          ID_EX_TYPE_A<=ID_EX_TYPE_1;
 
                          ID_EX_IR_B<=Nop_IR;
-                         ID_EX_NPC_B<=ID_EX_NPC_B;
+                         ID_EX_PC_B<=ID_EX_PC_B;
                          ID_EX_X0_B<=32'd0;
                          ID_EX_X1_B<=32'd0;
                          ID_EX_IMM_B<=32'd0;
@@ -518,14 +544,14 @@ else if(stall_ID==0)
                          
                  MEMtype:begin
                          ID_EX_IR_A<=Nop_IR;
-                         ID_EX_NPC_A<=ID_EX_NPC_A;
+                         ID_EX_PC_A<=ID_EX_PC_A;
                          ID_EX_X0_A<=32'd0;
                          ID_EX_X1_A<=32'd0; 
                          ID_EX_IMM_A<=32'd0;
                          ID_EX_TYPE_A<=Nop;
                         
                         ID_EX_IR_B<=IF_ID_IR_1;
-                        ID_EX_NPC_B<=IF_ID_NPC_1;
+                        ID_EX_PC_B<=IF_ID_PC_1;
                         ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                         ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
                         ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};      
@@ -535,14 +561,14 @@ else if(stall_ID==0)
                                                              
                  B_Jtype:begin
                          ID_EX_IR_A<=IF_ID_IR_1;
-                         ID_EX_NPC_A<=IF_ID_NPC_1;
+                         ID_EX_PC_A<=IF_ID_PC_1;
                          ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                          ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
                          ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
                          ID_EX_TYPE_A<=ID_EX_TYPE_1;
         
                          ID_EX_IR_B<=Nop_IR;
-                         ID_EX_NPC_B<=ID_EX_NPC_B;
+                         ID_EX_PC_B<=ID_EX_PC_B;
                          ID_EX_X0_B<=32'd0;
                          ID_EX_X1_B<=32'd0;
                          ID_EX_IMM_B<=32'd0;
@@ -551,14 +577,14 @@ else if(stall_ID==0)
                           end
                  default:begin
                                      ID_EX_IR_A<=Nop_IR;
-                                     ID_EX_NPC_A<=ID_EX_NPC_A;
+                                     ID_EX_PC_A<=ID_EX_PC_A;
                                      ID_EX_X0_A<=32'd0;
                                      ID_EX_X1_A<=32'd0; 
                                      ID_EX_IMM_A<=32'd0;
                                      ID_EX_TYPE_A<=Nop;
                                      
                                      ID_EX_IR_B<=Nop_IR;
-                                     ID_EX_NPC_B<=ID_EX_NPC_B;
+                                     ID_EX_PC_B<=ID_EX_PC_B;
                                      ID_EX_X0_B<=32'd0;
                                      ID_EX_X1_B<=32'd0;
                                      ID_EX_IMM_B<=32'd0;
@@ -570,9 +596,134 @@ else if(stall_ID==0)
         endcase
         end
    
-else// condition to send 1 data path after stalling 
+else
+if (hazard_stall==1)
+begin
+ID_EX_IR_A<=Nop_IR;
+ID_EX_PC_A<=ID_EX_PC_A;
+ID_EX_X0_A<=32'd0;
+ID_EX_X1_A<=32'd0; 
+ID_EX_IMM_A<=32'd0;
+ID_EX_TYPE_A<=Nop;
 
-if (stall_II==1)
+ID_EX_IR_B<=Nop_IR;
+ID_EX_PC_B<=ID_EX_PC_B;
+ID_EX_X0_B<=32'd0;
+ID_EX_X1_B<=32'd0;
+ID_EX_IMM_B<=32'd0;
+ID_EX_TYPE_B<=Nop;
+end 
+
+else if(hazard_ID_stall==1)
+begin
+case (FU_type_X0)
+ALUtype:begin
+        ID_EX_IR_A<=IF_ID_IR_0;
+        ID_EX_PC_A<=IF_ID_PC_0;
+        ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
+        ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
+        ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
+        ID_EX_TYPE_A<=ID_EX_TYPE_0;
+
+        ID_EX_IR_B<=Nop_IR;
+        ID_EX_PC_B<=ID_EX_PC_B;
+        ID_EX_X0_B<=32'd0;
+        ID_EX_X1_B<=32'd0;
+        ID_EX_IMM_B<=32'd0;
+        ID_EX_TYPE_B<=Nop;                          
+                                end
+        
+MEMtype:begin
+        ID_EX_IR_A<=Nop_IR;
+        ID_EX_PC_A<=ID_EX_PC_A;
+        ID_EX_X0_A<=32'd0;
+        ID_EX_X1_A<=32'd0; 
+        ID_EX_IMM_A<=32'd0;
+        ID_EX_TYPE_A<=Nop;
+       
+        ID_EX_IR_B<=IF_ID_IR_0;
+        ID_EX_PC_B<=IF_ID_PC_0;
+        ID_EX_X0_B<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
+        ID_EX_X1_B<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]];
+        ID_EX_IMM_B<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};                
+        ID_EX_TYPE_B<=ID_EX_TYPE_0;    
+
+         end
+                                            
+B_Jtype:begin
+        ID_EX_IR_A<=IF_ID_IR_0;
+        ID_EX_PC_A<=IF_ID_PC_0;
+        ID_EX_X0_A<=(IF_ID_IR_0[25:21]==5'b00000)?0:REG[IF_ID_IR_0[25:21]];
+        ID_EX_X1_A<=(IF_ID_IR_0[20:16]==5'b00000)?0:REG[IF_ID_IR_0[20:16]]; 
+        ID_EX_IMM_A<={{16{IF_ID_IR_0[15]}},{IF_ID_IR_0[15:0]}};
+        ID_EX_TYPE_A<=ID_EX_TYPE_0;
+
+        ID_EX_IR_B<=Nop_IR;
+        ID_EX_PC_B<=ID_EX_PC_B;
+        ID_EX_X0_B<=32'd0;
+        ID_EX_X1_B<=32'd0;
+        ID_EX_IMM_B<=32'd0;
+        ID_EX_TYPE_B<=Nop;                          
+       
+         end
+
+endcase 
+end
+else if(hazard_ID_unstall==1)
+begin
+case (FU_type_X1)
+ALUtype:begin
+        ID_EX_IR_A<=IF_ID_IR_1;
+        ID_EX_PC_A<=IF_ID_PC_1;
+        ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
+        ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
+        ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
+        ID_EX_TYPE_A<=ID_EX_TYPE_1;
+
+        ID_EX_IR_B<=Nop_IR;
+        ID_EX_PC_B<=ID_EX_PC_B;
+        ID_EX_X0_B<=32'd0;
+        ID_EX_X1_B<=32'd0;
+        ID_EX_IMM_B<=32'd0;
+        ID_EX_TYPE_B<=Nop;                          
+                                end
+        
+MEMtype:begin
+        ID_EX_IR_A<=Nop_IR;
+        ID_EX_PC_A<=ID_EX_PC_A;
+        ID_EX_X0_A<=32'd0;
+        ID_EX_X1_A<=32'd0; 
+        ID_EX_IMM_A<=32'd0;
+        ID_EX_TYPE_A<=Nop;
+       
+        ID_EX_IR_B<=IF_ID_IR_1;
+        ID_EX_PC_B<=IF_ID_PC_1;
+        ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
+        ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
+        ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};                
+        ID_EX_TYPE_B<=ID_EX_TYPE_1;    
+
+         end
+                                            
+B_Jtype:begin
+        ID_EX_IR_A<=IF_ID_IR_1;
+        ID_EX_PC_A<=IF_ID_PC_1;
+        ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
+        ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
+        ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
+        ID_EX_TYPE_A<=ID_EX_TYPE_1;
+
+        ID_EX_IR_B<=Nop_IR;
+        ID_EX_PC_B<=ID_EX_PC_B;
+        ID_EX_X0_B<=32'd0;
+        ID_EX_X1_B<=32'd0;
+        ID_EX_IMM_B<=32'd0;
+        ID_EX_TYPE_B<=Nop;                          
+       
+         end
+endcase
+end
+else if (stall_II==1)// condition to send 1 data path after stalling 
 begin
          case (FU_type_X0)
                   B_Jtype:begin
@@ -580,7 +731,7 @@ begin
                                  B_Jtype:begin
                                  stall_II<=0;
                                  ID_EX_IR_A<=IF_ID_IR_1;
-                                 ID_EX_NPC_A<=IF_ID_NPC_1;
+                                 ID_EX_PC_A<=IF_ID_PC_1;
                                  ID_EX_X0_A<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                                  ID_EX_X1_A<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]]; 
                                  ID_EX_IMM_A<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
@@ -594,7 +745,7 @@ begin
                               MEMtype:begin
                               stall_II<=0;
                               ID_EX_IR_B<=IF_ID_IR_1;
-                              ID_EX_NPC_B<=IF_ID_NPC_1;
+                              ID_EX_PC_B<=IF_ID_PC_1;
                               ID_EX_X0_B<=(IF_ID_IR_1[25:21]==5'b00000)?0:REG[IF_ID_IR_1[25:21]];
                               ID_EX_X1_B<=(IF_ID_IR_1[20:16]==5'b00000)?0:REG[IF_ID_IR_1[20:16]];
                               ID_EX_IMM_B<={{16{IF_ID_IR_1[15]}},{IF_ID_IR_1[15:0]}};
@@ -604,25 +755,7 @@ begin
                           end
         endcase
 end
-//else 
-//begin
-//ID_EX_IR_A<=ID_EX_IR_A;
-//ID_EX_NPC_A<=ID_EX_NPC_A;
-//ID_EX_X0_A<=ID_EX_X0_A;
-//ID_EX_X1_A<=ID_EX_X1_A; 
-//ID_EX_IMM_A<=ID_EX_IMM_A;
-
-//ID_EX_IR_B<=ID_EX_IR_B;
-//ID_EX_NPC_B<=ID_EX_NPC_B;
-//ID_EX_X0_B<=ID_EX_X0_B;
-//ID_EX_X1_B<=ID_EX_X1_B;
-//ID_EX_IMM_B<=ID_EX_IMM_B;
-//ID_EX_TYPE_A<=ID_EX_TYPE_A;
-//ID_EX_TYPE_B<=ID_EX_TYPE_B;
-//end
 end
-
-
 //Ex stage
 
 //ALU declearation
@@ -630,8 +763,8 @@ ALU alu_A(
                 .A(ID_EX_X0_A),
                 .B(ID_EX_X1_A),
                 .IMM(ID_EX_IMM_A),
-                .NPC(ID_EX_NPC_A),
-                .func(ID_EX_IR_A[31:26]),
+                .PC(ID_EX_PC_A),
+                .IR(ID_EX_IR_A),
                 .type(ID_EX_TYPE_A),
                 .ALUout(ALUout_A));
                 
@@ -639,8 +772,8 @@ ALU alu_B(
                 .A(ID_EX_X0_B),
                 .B(ID_EX_X1_B),
                 .IMM(ID_EX_IMM_B),
-                .NPC(ID_EX_NPC_B),
-                .func(ID_EX_IR_B[31:26]),
+                .PC(ID_EX_PC_B),
+                .IR(ID_EX_IR_B),
                 .type(ID_EX_TYPE_B),
                 .ALUout(ALUout_B));
 
@@ -653,7 +786,7 @@ if (reset) begin
         EX_MEM_TYPE_B <= Nop;
         branched      <= 1'b0;
     end
-else if(flush==1)
+else if(branched==1)
 begin
 EX_MEM_IR_A   <= Nop_IR;
 EX_MEM_IR_B   <= Nop_IR;
@@ -699,9 +832,7 @@ begin
                   branched<=1;
                         end
  
-        JAL:begin
-                  branched<=1;
-                    end
+
         default:begin
                     branched<=0;
         
@@ -755,7 +886,6 @@ end
 //WB STAGE
 always@(posedge clk1)
 begin
-    if(branched==0)
     begin
         case(MEM_WB_TYPE_A)
             RR_ALU: REG[MEM_WB_IR_A[15:11]]<=  MEM_WB_ALUout_A;//rd
@@ -771,7 +901,6 @@ begin
     end
  
 //hazard detection stalling cycle(not bypass)
-//hazard_stall
 function automatic [4:0] rd(input [31:0] ir, input [2:0] type);
     case (type)
         RR_ALU: rd = ir[15:11];
@@ -794,41 +923,96 @@ function automatic [4:0] rs2(input [31:0] ir, input [2:0] type);
     endcase
 endfunction
 
-task automatic check_hazard;
+task automatic check_ID_ID_hazard;
     input [31:0] prod_ir;
     input [2:0]  prod_type;
     input [31:0] cons_ir;
     input [2:0]  cons_type;
 begin
-    if (rd(prod_ir, prod_type) != 0) begin
+    if (rd(prod_ir, prod_type) != 5'd0) begin
         if (rd(prod_ir, prod_type) == rs1(cons_ir))
-            hazard_stall = 1'b1;
-        else if (cons_type == RR_ALU || cons_type == BRANCH)
-            if (rd(prod_ir, prod_type) == rs2(cons_ir, cons_type))
-                hazard_stall = 1'b1;
+            ID_ID_hazard = 1'b1;
+        else if ((cons_type == RR_ALU || cons_type == BRANCH) &&
+                 rd(prod_ir, prod_type) == rs2(cons_ir, cons_type))
+            ID_ID_hazard = 1'b1;
     end
 end
 endtask
-always @(*) begin
-    hazard_stall = 1'b0;
 
-    // Check IF/ID slot 0
-    check_hazard(ID_EX_IR_A,  ID_EX_TYPE_A,  IF_ID_IR_0, ID_EX_TYPE_0);
-    check_hazard(ID_EX_IR_B,  ID_EX_TYPE_B,  IF_ID_IR_0, ID_EX_TYPE_0);
-    check_hazard(EX_MEM_IR_A, EX_MEM_TYPE_A, IF_ID_IR_0, ID_EX_TYPE_0);
-    check_hazard(EX_MEM_IR_B, EX_MEM_TYPE_B, IF_ID_IR_0, ID_EX_TYPE_0);
-//    check_hazard(MEM_WB_IR_A, MEM_WB_TYPE_A, IF_ID_IR_0, ID_EX_TYPE_0);
-//    check_hazard(MEM_WB_IR_B, MEM_WB_TYPE_B, IF_ID_IR_0, ID_EX_TYPE_0);
-
-    // Check IF/ID slot 1
-    check_hazard(ID_EX_IR_A,  ID_EX_TYPE_A,  IF_ID_IR_1, ID_EX_TYPE_1);
-    check_hazard(ID_EX_IR_B,  ID_EX_TYPE_B,  IF_ID_IR_1, ID_EX_TYPE_1);
-    check_hazard(EX_MEM_IR_A, EX_MEM_TYPE_A, IF_ID_IR_1, ID_EX_TYPE_1);
-    check_hazard(EX_MEM_IR_B, EX_MEM_TYPE_B, IF_ID_IR_1, ID_EX_TYPE_1);
-//    check_hazard(MEM_WB_IR_A, MEM_WB_TYPE_A, IF_ID_IR_1, ID_EX_TYPE_1);
-//    check_hazard(MEM_WB_IR_B, MEM_WB_TYPE_B, IF_ID_IR_1, ID_EX_TYPE_1);
+task automatic check_ID_EX_hazard;
+    input [31:0] prod_ir;
+    input [2:0]  prod_type;
+    input [31:0] cons_ir;
+    input [2:0]  cons_type;
+begin
+    if (rd(prod_ir, prod_type) != 5'd0) begin
+        if (rd(prod_ir, prod_type) == rs1(cons_ir))
+            ID_EX_hazard = 1'b1;
+        else if ((cons_type == RR_ALU || cons_type == BRANCH) &&
+                 rd(prod_ir, prod_type) == rs2(cons_ir, cons_type))
+            ID_EX_hazard = 1'b1;
+    end
 end
+endtask
 
+task automatic check_ID_MEM_hazard;
+    input [31:0] prod_ir;
+    input [2:0]  prod_type;
+    input [31:0] cons_ir;
+    input [2:0]  cons_type;
+begin
+    if (rd(prod_ir, prod_type) != 5'd0) begin
+        if (rd(prod_ir, prod_type) == rs1(cons_ir))
+            ID_MEM_hazard = 1'b1;
+        else if ((cons_type == RR_ALU || cons_type == BRANCH) &&
+                 rd(prod_ir, prod_type) == rs2(cons_ir, cons_type))
+            ID_MEM_hazard = 1'b1;
+    end
+end
+endtask
+
+task automatic check_ID_WB_hazard;
+    input [31:0] prod_ir;
+    input [2:0]  prod_type;
+    input [31:0] cons_ir;
+    input [2:0]  cons_type;
+begin
+    if (rd(prod_ir, prod_type) != 5'd0) begin
+        if (rd(prod_ir, prod_type) == rs1(cons_ir))
+            ID_WB_hazard = 1'b1;
+        else if ((cons_type == RR_ALU || cons_type == BRANCH) &&
+                 rd(prod_ir, prod_type) == rs2(cons_ir, cons_type))
+            ID_WB_hazard = 1'b1;
+    end
+end
+endtask
+
+always @(*) begin
+        ID_ID_hazard=1'b0;
+        ID_EX_hazard=1'b0;
+        ID_MEM_hazard=1'b0;
+        ID_WB_hazard=1'b0;
+
+        check_ID_ID_hazard(IF_ID_IR_0, ID_EX_TYPE_0, IF_ID_IR_1, ID_EX_TYPE_1);
+
+        check_ID_EX_hazard(ID_EX_IR_A,  ID_EX_TYPE_A,  IF_ID_IR_1, ID_EX_TYPE_1);
+        check_ID_EX_hazard(ID_EX_IR_B,  ID_EX_TYPE_B,  IF_ID_IR_1, ID_EX_TYPE_1);
+        check_ID_EX_hazard(ID_EX_IR_B,  ID_EX_TYPE_B,  IF_ID_IR_0, ID_EX_TYPE_0);
+        check_ID_EX_hazard(ID_EX_IR_A,  ID_EX_TYPE_A,  IF_ID_IR_0, ID_EX_TYPE_0);
+        
+        
+        check_ID_MEM_hazard(EX_MEM_IR_A, EX_MEM_TYPE_A, IF_ID_IR_0, ID_EX_TYPE_0);
+        check_ID_MEM_hazard(EX_MEM_IR_B, EX_MEM_TYPE_B, IF_ID_IR_0, ID_EX_TYPE_0);
+        check_ID_MEM_hazard(EX_MEM_IR_A, EX_MEM_TYPE_A, IF_ID_IR_1, ID_EX_TYPE_1);
+        check_ID_MEM_hazard(EX_MEM_IR_B, EX_MEM_TYPE_B, IF_ID_IR_1, ID_EX_TYPE_1);
+     
+     
+        check_ID_WB_hazard(MEM_WB_IR_A, MEM_WB_TYPE_A, IF_ID_IR_0, ID_EX_TYPE_0);
+        check_ID_WB_hazard(MEM_WB_IR_B, MEM_WB_TYPE_B, IF_ID_IR_0, ID_EX_TYPE_0);
+        check_ID_WB_hazard(MEM_WB_IR_A, MEM_WB_TYPE_A, IF_ID_IR_1, ID_EX_TYPE_1);
+        check_ID_WB_hazard(MEM_WB_IR_B, MEM_WB_TYPE_B, IF_ID_IR_1, ID_EX_TYPE_1);
+        
+end
 
 
 endmodule
