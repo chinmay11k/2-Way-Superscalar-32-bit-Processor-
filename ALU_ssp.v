@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 module ALU(
-input[31:0]A,B,IMM,NPC,
-input[5:0]func,
+input[31:0]A,B,PC,IR,
+input signed [31:0] IMM,
 input [2:0]type,
 output reg [31:0]ALUout );
 //op-coad parameters
@@ -31,7 +31,6 @@ parameter
     BGE  = 6'b011011,
     //jump type 
     J    = 6'b100000,
-    JAL  = 6'b100001,
     
     //no oparations 
     NOP  = 6'b111111;
@@ -52,13 +51,13 @@ always@(*)
 begin
 case(type)
    RR_ALU:begin
-           case(func)
+           case(IR[31:26])
                ADD:ALUout<=  A+B;
                SUB:ALUout<=  A-B;
                AND:ALUout<=  A&B;
                OR:ALUout<=  A|B;
-               SRL:ALUout<=  A<<B;
-               SLL:ALUout<=  A>>B;
+               SRL:ALUout<=  A>>B;
+               SLL:ALUout<=  A<<B;
                MUL:ALUout<=  A*B;
                XOR:ALUout<=  A^B;
         
@@ -66,7 +65,7 @@ case(type)
             endcase
             end
    RI_ALU:begin
-        case(func)
+        case(IR[31:26])
         ADDI:ALUout<=  A+IMM;
         SUBI:ALUout<=  A-IMM;
         ANDI:ALUout<=  A&IMM;
@@ -83,13 +82,11 @@ case(type)
       end
     
    BRANCH:
-   ALUout<=  NPC+IMM;
+   ALUout<=  PC+IMM;
    
-   JUMP:
-   begin
-   ALUout<=IMM;     //jump to absolute adress
-   end
- 
-     endcase
+   JUMP:   ALUout<=PC
+   +IR[25:0];     //jump to absolute adress
+   default: ALUout<=0;
+endcase
 end
 endmodule
