@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module SSP_branch_tb;
+module SSP_branch_b2b_tb;
 reg clk1,clk2;
 reg reset;
 integer i,j;  
@@ -132,8 +132,8 @@ ssp.MEM[5] <= {ADD, R1, R7,  R19, 11'd0};
 ssp.MEM[6] <= {ADD, R1, R8,  R20, 11'd0};
 ssp.MEM[7] <= {ADD, R1, R9,  R21, 11'd0};
 
-ssp.MEM[8]  <= {BEQ, R3, R14, 16'd10};
-ssp.MEM[9]  <= {ADD, R5, R3,  R15, 11'd0};
+ssp.MEM[8]  <= {BEQ, R1, R14, 16'd10};
+ssp.MEM[9]  <= {BNE, R1, R14, 16'd9};
 ssp.MEM[10] <= {ADD, R5, R4,  R16, 11'd0};
 ssp.MEM[11] <= {ADD, R5, R5,  R17, 11'd0};
 ssp.MEM[12] <= {ADD, R5, R6,  R18, 11'd0};
@@ -143,7 +143,7 @@ ssp.MEM[15] <= {ADD, R5, R9,  R21, 11'd0};
 
 ssp.MEM[20] <= {SUB, R30, R4,  R16, 11'd0};
 ssp.MEM[21] <= {SUB, R30, R5,  R17, 11'd0};
-ssp.MEM[22] <= {BNE, R3,  R15, 16'd10};
+ssp.MEM[22] <= {SUB, R30, R6,  R18, 11'd0};
 ssp.MEM[23] <= {SUB, R30, R7,  R19, 11'd0};
 ssp.MEM[24] <= {SUB, R30, R8,  R20, 11'd0};
 ssp.MEM[25] <= {SUB, R30, R9,  R21, 11'd0};

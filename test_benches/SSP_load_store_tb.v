@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module SSP_branch_tb;
+module SSP_load_store_tb;
 reg clk1,clk2;
 reg reset;
 integer i,j;  
@@ -57,7 +57,6 @@ superscaler_processor ssp(.clk1(clk1),
      BGE  = 6'b011011,
      //jump type 
      J    = 6'b100000,
-     JAL  = 6'b100001,
      
      //no oparations 
      NOP  = 6'b111111;
@@ -120,33 +119,28 @@ begin
    ssp.MEM[j]<={NOP,26'd0};  
 end
  #1;
- //opcode writing style for I type 
-// {opecode,rs1,rd,16 bits IMM data  } rs=reg ,rd =destination reg  
- 
+//   ssp.MEM[1]<={LW,R0,R1,16'd50};
+
  ssp.MEM[0] <= {ADD, R1, R2, R14, 11'd0};
-ssp.MEM[1] <= {ADD, R1, R3,  R15, 11'd0};
-ssp.MEM[2] <= {ADD, R1, R4,  R16, 11'd0};
-ssp.MEM[3] <= {ADD, R1, R5,  R17, 11'd0};
-ssp.MEM[4] <= {ADD, R1, R6,  R18, 11'd0};
-ssp.MEM[5] <= {ADD, R1, R7,  R19, 11'd0};
-ssp.MEM[6] <= {ADD, R1, R8,  R20, 11'd0};
-ssp.MEM[7] <= {ADD, R1, R9,  R21, 11'd0};
+ ssp.MEM[1] <= {ADD, R1, R3,  R15, 11'd0};
+ ssp.MEM[2] <= {ADD, R1, R4,  R16, 11'd0};
+ ssp.MEM[3] <= {ADD, R1, R5,  R17, 11'd0};
+ ssp.MEM[4] <= {LW,R0,R8,16'd50};
+ ssp.MEM[5] <= {ADD, R1, R7,  R19, 11'd0};
+ ssp.MEM[6] <= {ADD, R1, R8,  R20, 11'd0};
+ ssp.MEM[7] <= {ADD, R1, R9,  R21, 11'd0};
+ 
+// ssp.MEM[8]  <= {ADD, R5, R2,  R14, 11'd0};
+// ssp.MEM[9]  <= {ADD, R5, R3,  R15, 11'd0};
+// ssp.MEM[10] <= {ADD, R5, R4,  R16, 11'd0};
+// ssp.MEM[11] <= {ADD, R5, R5,  R17, 11'd0};
+// ssp.MEM[12] <= {ADD, R5, R6,  R18, 11'd0};
+// ssp.MEM[13] <= {ADD, R5, R7,  R19, 11'd0};
+// ssp.MEM[14] <= {ADD, R5, R8,  R20, 11'd0};
+// ssp.MEM[15] <= {ADD, R5, R9,  R21, 11'd0};
+ 
+ ssp.MEM[50]<=32'd100;
 
-ssp.MEM[8]  <= {BEQ, R3, R14, 16'd10};
-ssp.MEM[9]  <= {ADD, R5, R3,  R15, 11'd0};
-ssp.MEM[10] <= {ADD, R5, R4,  R16, 11'd0};
-ssp.MEM[11] <= {ADD, R5, R5,  R17, 11'd0};
-ssp.MEM[12] <= {ADD, R5, R6,  R18, 11'd0};
-ssp.MEM[13] <= {ADD, R5, R7,  R19, 11'd0};
-ssp.MEM[14] <= {ADD, R5, R8,  R20, 11'd0};
-ssp.MEM[15] <= {ADD, R5, R9,  R21, 11'd0};
-
-ssp.MEM[20] <= {SUB, R30, R4,  R16, 11'd0};
-ssp.MEM[21] <= {SUB, R30, R5,  R17, 11'd0};
-ssp.MEM[22] <= {BNE, R3,  R15, 16'd10};
-ssp.MEM[23] <= {SUB, R30, R7,  R19, 11'd0};
-ssp.MEM[24] <= {SUB, R30, R8,  R20, 11'd0};
-ssp.MEM[25] <= {SUB, R30, R9,  R21, 11'd0};
 end
 
 //reser test
