@@ -24,7 +24,7 @@ module superscaler_processor(
 input clk1,clk2,reset);
 
 reg [31:0]REG[0:31];
-reg [31:0]MEM[0:127];
+reg [31:0]MEM[0:127];//kept small for easy simulations 
 
 //program counter
 reg [31:0]PC;
@@ -145,11 +145,6 @@ if (reset) begin
         IF_ID_IR_1 <= Nop_IR;
         IF_ID_PC_0 <= 32'd0;
         IF_ID_PC_1 <= 32'd0;
-        ID_ID_hazard=1'b0;
-        ID_EX_hazard=1'b0;
-        ID_MEM_hazard=1'b0;
-        ID_WB_hazard=1'b0;
-//        branched <= 1'b0;
     end
     else if(stall_IF==0)
     begin
@@ -158,7 +153,6 @@ if (reset) begin
                   IF_ID_PC_0<=EX_MEM_ALUout_A;
                   IF_ID_PC_1<=EX_MEM_ALUout_A+1;
                   PC<=EX_MEM_ALUout_A;
-                  branched<=1;
                   IF_ID_IR_0<= MEM[EX_MEM_ALUout_A];
                   IF_ID_IR_1<= MEM[EX_MEM_ALUout_A+1];
                 end
@@ -167,7 +161,6 @@ if (reset) begin
                 IF_ID_PC_0<= PC;
                 IF_ID_PC_1<= PC+1;
                 PC<= PC+2;
-                branched<=0;
                 IF_ID_IR_0<= MEM[PC];
                 IF_ID_IR_1<= MEM[PC+1];
                 end
@@ -759,7 +752,7 @@ end
 //Ex stage
 
 //ALU declearation
-ALU alu_A(
+ALU_A alu_A(
                 .A(ID_EX_X0_A),
                 .B(ID_EX_X1_A),
                 .IMM(ID_EX_IMM_A),
@@ -768,7 +761,7 @@ ALU alu_A(
                 .type(ID_EX_TYPE_A),
                 .ALUout(ALUout_A));
                 
-ALU alu_B(
+ALU_B alu_B(
                 .A(ID_EX_X0_B),
                 .B(ID_EX_X1_B),
                 .IMM(ID_EX_IMM_B),
