@@ -424,35 +424,6 @@ The current repository therefore contains both the original MIPS-based implement
 
 ---
 
-## Current Status
-
-**Work Completed**
-
-The implementation is now complete and has been fully verified.
-
-The final system includes:
-
-* Expanded RV32I instruction support
-* Completed functional verification
-* Verified pipeline hazard handling
-* Tested dual-issue instruction combinations
-* Added simulation results and waveform analysis
-* Improved overall processor robustness
-
----
-
-## Future Work
-
-* Complete and systematically validate RV32I instruction coverage
-* Expand automated processor testing
-* Add comprehensive simulation waveforms
-* Validate against standard RISC-V test programs
-* Evaluate dual-issue performance
-* Investigate forwarding-based hazard reduction
-* Synthesize the processor and evaluate hardware metrics
-
----
-
 ## Tools
 
 * Verilog
