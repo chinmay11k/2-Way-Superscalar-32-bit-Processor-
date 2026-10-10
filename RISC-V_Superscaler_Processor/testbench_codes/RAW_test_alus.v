@@ -1,17 +1,9 @@
 `timescale 1ns / 1ps
 
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: ALU operation verification without hazards
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Functional Test
-//================================================================================
-
 module RV32I_SSP_TB;
 
-//================================================================================
 // CLOCK AND RESET
-//================================================================================
+
 reg clk1;
 reg clk2;
 reg reset;
@@ -150,9 +142,9 @@ for(i = 0; i < 32; i = i + 1)
             begin
                 RV32_SSP.DECODE.RF.REG[i] <= i;
             end
-//====================================================
+
     // Expected
-    //====================================================
+    
     //
     // x10 = x1 + x2   = 1 + 2   = 3
     //
@@ -164,36 +156,36 @@ for(i = 0; i < 32; i = i + 1)
     //
     // x14 = x13 + x6  = 15 + 6  = 21
     //
-    //====================================================
+    
     // Program
-    //====================================================
+    
     
     // 0 : Produce x10
     RV32_SSP.FETCH.IMEM.MEM[0]  <= {F7_ADD,x2 ,x1 ,F3_ADD_SUB,x10,OP};  
     RV32_SSP.FETCH.IMEM.MEM[1]  <= {F7_ADD,x10 ,x2 ,F3_ADD_SUB,x11,OP};
     RV32_SSP.FETCH.IMEM.MEM[2]  <= {F7_ADD,x11,x10 ,F3_ADD_SUB,x12,OP};
     RV32_SSP.FETCH.IMEM.MEM[3]  <= {F7_ADD,x12,x11,F3_ADD_SUB,x15,OP};
-//    RV32_SSP.FETCH.IMEM.MEM[4]  <= {F7_ADD,x2,x13,F3_ADD_SUB,x14,OP};
-//#300 $finish;
-//    RV32_SSP.FETCH.IMEM.MEM[5]  <= {F7_ADD,x16,x15,F3_ADD_SUB,x2,OP};
+    RV32_SSP.FETCH.IMEM.MEM[4]  <= {F7_ADD,x2,x13,F3_ADD_SUB,x14,OP};
+
+    RV32_SSP.FETCH.IMEM.MEM[5]  <= {F7_ADD,x16,x15,F3_ADD_SUB,x2,OP};
     
 //    // 6 : Consume x10, produce x11 
-//    RV32_SSP.FETCH.IMEM.MEM[6]  <= {F7_ADD,x3 ,x10,F3_ADD_SUB,x1,OP};
+    RV32_SSP.FETCH.IMEM.MEM[6]  <= {F7_ADD,x3 ,x10,F3_ADD_SUB,x1,OP};
     
-//    RV32_SSP.FETCH.IMEM.MEM[7]  <= {F7_ADD,x18,x17,F3_ADD_SUB,x2,OP};
-//    RV32_SSP.FETCH.IMEM.MEM[13]  <= {F7_ADD,x20,x19,F3_XOR    ,x2,OP};
-//    RV32_SSP.FETCH.IMEM.MEM[14]  <= {F7_ADD,x22,x21,F3_OR     ,x2,OP};
+    RV32_SSP.FETCH.IMEM.MEM[7]  <= {F7_ADD,x18,x17,F3_ADD_SUB,x2,OP};
+    RV32_SSP.FETCH.IMEM.MEM[13]  <= {F7_ADD,x20,x19,F3_XOR    ,x2,OP};
+    RV32_SSP.FETCH.IMEM.MEM[14]  <= {F7_ADD,x22,x21,F3_OR     ,x2,OP};
     
     // 10 : Consume x11, pro duce x12
-//    RV32_SSP.FETCH.IMEM.MEM[10] <= {F7_ADD,x4 ,x11,F3_ADD_SUB,x12,OP};
+    RV32_SSP.FETCH.IMEM.MEM[10] <= {F7_ADD,x4 ,x11,F3_ADD_SUB,x12,OP};
     
-////    RV32_SSP.FETCH.IMEM.MEM[11] <= {F7_ADD,x24,x23,F3_AND    ,x28,OP};
+    RV32_SSP.FETCH.IMEM.MEM[11] <= {F7_ADD,x24,x23,F3_AND    ,x28,OP};
     
-//    // 12 : Consume x12, produce x13
-//    RV32_SSP.FETCH.IMEM.MEM[12] <= {F7_ADD,x5 ,x12,F3_ADD_SUB,x13,OP};
+     // 12 : Consume x12, produce x13
+    RV32_SSP.FETCH.IMEM.MEM[12] <= {F7_ADD,x5 ,x12,F3_ADD_SUB,x13,OP};
     
-//////     13 : Consume x13
-//    RV32_SSP.FETCH.IMEM.MEM[13] <= {F7_ADD,x6 ,x13,F3_ADD_SUB,x14,OP};
+    //13 : Consume x13
+    RV32_SSP.FETCH.IMEM.MEM[13] <= {F7_ADD,x6 ,x13,F3_ADD_SUB,x14,OP};
 end
 
 
@@ -203,9 +195,9 @@ begin
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
+
 // SIMULATION END
-//================================================================================
+
 initial
 begin
 

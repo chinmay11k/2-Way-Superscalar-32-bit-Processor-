@@ -1,17 +1,9 @@
 `timescale 1ns / 1ps
-
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: Basic ALU testing with immediate operations and register operations
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Timing Verification (5 ADDI + ALU operations)
-//================================================================================
-
 module RV32I_SSP_TB;
 
-//================================================================================
+
 // CLOCK AND RESET
-//================================================================================
+
 reg clk1;
 reg clk2;
 reg reset;
@@ -24,9 +16,9 @@ RV32_top RV32_SSP(
     .reset(reset)
 );
 
-//================================================================================
+
 // RV32I INSTRUCTION PARAMETERS (OPCODES)
-//================================================================================
+
 parameter
     // Major Opcodes (7 bits)
     LUI         = 7'b0110111,
@@ -41,9 +33,9 @@ parameter
     MISC_MEM    = 7'b0001111,
     SYSTEM      = 7'b1110011;
 
-//================================================================================
+
 // RV32I FUNCTION CODES (FUNCT3 - 3 bits)
-//================================================================================
+
 parameter
     // ALU Operations (for both OP_IMM and OP)
     F3_ADDSUB   = 3'b000,           // ADD/SUB (funct7 differentiates)
@@ -63,17 +55,17 @@ parameter
     F3_BLTU     = 3'b110,           // Branch if Less Than (Unsigned)
     F3_BGEU     = 3'b111;           // Branch if Greater Equal (Unsigned)
 
-//================================================================================
+
 // RV32I FUNCT7 CODES (7 bits - for R-type and some I-type)
-//================================================================================
+
 parameter
     F7_ADD      = 7'b0000000,       // ADD, SLL, SRL, AND, OR, XOR
     F7_SUB      = 7'b0100000,       // SUB (instead of ADD)
     F7_SRA      = 7'b0100000;       // Shift Right Arithmetic (instead of SRL)
 
-//================================================================================
+
 // REGISTER NAMES (x0-x31)
-//================================================================================
+
 parameter
     x0  = 5'b00000,  // Zero Register
     x1  = 5'b00001,  // Return Address
@@ -108,15 +100,15 @@ parameter
     x30 = 5'b11110,
     x31 = 5'b11111;
 
-//================================================================================
+
 // NOP INSTRUCTION (addi x0, x0, 0)
-//================================================================================
+
 parameter
     NOP = 32'h00000013;
 
-//================================================================================
+
 // CLOCK GENERATION (2 Phase Clocks for Superscaler)
-//================================================================================
+
 // clk1 and clk2 are staggered for dual-issue pipeline
 initial 
 begin
@@ -131,9 +123,9 @@ begin
     end
 end
 
-//================================================================================
+
 // MEMORY INITIALIZATION AND TEST SETUP
-//================================================================================
+
 initial 
 begin
     // Initialize all instruction memory with NOP
@@ -143,37 +135,19 @@ begin
     end
     
     #1;  // Small delay before writing instructions
-    
-    //================================================================================
-    // TEST SEQUENCE: 5 IMMEDIATE ADDITIONS (ADDI) - NO RAW HAZARDS
-    //================================================================================
-    // Test Goal: Verify timing and ALU operations with immediate operands
-    // Instruction Format for I-type: {imm[11:0], rs1, funct3, rd, opcode}
-    // Design: Each instruction uses DIFFERENT registers (no RAW hazards)
-    // Hierarchical Path: RV32_SSP.FETCH.IMEM.MEM[address]
-    //================================================================================
-    
-    // ========== INSTRUCTION 0 ==========
     // ADDI x3, x0, 10
     // Expected: x3 = 10
     RV32_SSP.FETCH.IMEM.MEM[0] <= {12'd10, x0, F3_ADDSUB, x3, OP_IMM};
-    
-    // ========== INSTRUCTION 1 ==========
     // ADDI x4, x0, 20 (reads x0, no dependency on x3)
     // Expected: x4 = 20
     RV32_SSP.FETCH.IMEM.MEM[1] <= {12'd20, x0, F3_ADDSUB, x4, OP_IMM};
-    
-    // ========== INSTRUCTION 2 ==========
+ 
     // ADDI x5, x0, 30 (reads x0, no dependency on x4)
     // Expected: x5 = 30
     RV32_SSP.FETCH.IMEM.MEM[2] <= {12'd30, x0, F3_ADDSUB, x5, OP_IMM};
-    
-    // ========== INSTRUCTION 3 ==========
     // ADDI x6, x0, 40 (reads x0, no dependency on x5)
     // Expected: x6 = 40
     RV32_SSP.FETCH.IMEM.MEM[3] <= {12'd40, x0, F3_ADDSUB, x6, OP_IMM};
-    
-    // ========== INSTRUCTION 4 ==========
     // ADDI x7, x0, 50 (reads x0, no dependency on x6)
     // Expected: x7 = 50
     RV32_SSP.FETCH.IMEM.MEM[4] <= {12'd50, x0, F3_ADDSUB, x7, OP_IMM};
@@ -186,18 +160,18 @@ begin
 
 end
 
-//================================================================================
+
 // RESET GENERATION
-//================================================================================
+
 initial
 begin
     reset = 1;              // Assert reset
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
+
 // SIMULATION END
-//================================================================================
+
 initial
 begin
     #500 $finish;

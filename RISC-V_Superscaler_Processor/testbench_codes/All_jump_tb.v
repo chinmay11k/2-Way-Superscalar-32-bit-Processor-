@@ -1,17 +1,10 @@
 `timescale 1ns / 1ps
 
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: ALU operation verification without hazards
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Functional Test
-//================================================================================
-
 module RV32I_SSP_TB;
 
-//================================================================================
+
 // CLOCK AND RESET
-//================================================================================
+
 reg clk1;
 reg clk2;
 reg reset;
@@ -142,9 +135,9 @@ begin
     end
 end
 
-//================================================================================
+
 // MEMORY INITIALIZATION AND ALU TEST SETUP
-//================================================================================
+
 initial 
 begin
     // Initialize all instruction memory with NOP
@@ -156,9 +149,9 @@ begin
         begin
             RV32_SSP.DECODE.RF.REG[i] <= 0;
         end
-    //============================================================
+    
         // REGISTER INITIALIZATION
-        //============================================================
+        
         
         for(i=0;i<32;i=i+1)
         begin
@@ -168,9 +161,9 @@ begin
         // JALR target address
         RV32_SSP.DECODE.RF.REG[x26] = 20;
         
-        //============================================================
+        
         // EXPECTED FINAL REGISTER VALUES
-        //============================================================
+        
         //
         // x1  = 10
         // x2  = 20
@@ -204,13 +197,13 @@ begin
         // Instructions 6-15 must not execute
         // Instructions 206-215 must not execute
         //
-        //============================================================
-        // INSTRUCTION MEMORY INITIALIZATION
-        //============================================================
         
-        //-------------------------
+        // INSTRUCTION MEMORY INITIALIZATION
+        
+        
+        
         // Main Program
-        //-------------------------
+        
         
         RV32_SSP.FETCH.IMEM.MEM[0] <= {12'd10,x0,F3_ADD_SUB,x1,OP_IMM};   // ADDI
         RV32_SSP.FETCH.IMEM.MEM[1] <= {12'd20,x0,F3_ADD_SUB,x2,OP_IMM};   // ADDI
@@ -222,9 +215,9 @@ begin
         // Replace JAL_IMM_200 with your J-type immediate encoding
         RV32_SSP.FETCH.IMEM.MEM[5] <= {JAL_IMM_200,x30,JAL};
         
-        //-------------------------
+        
         // Must Flush
-        //-------------------------
+        
         
         RV32_SSP.FETCH.IMEM.MEM[6]  <= {12'd111,x0,F3_ADD_SUB,x6 ,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[7]  <= {12'd222,x0,F3_ADD_SUB,x7 ,OP_IMM};
@@ -237,9 +230,9 @@ begin
         RV32_SSP.FETCH.IMEM.MEM[14] <= {12'd999,x0,F3_ADD_SUB,x14,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[15] <= {12'd123,x0,F3_ADD_SUB,x15,OP_IMM};
         
-        //-------------------------
+        
         // Return Address Target
-        //-------------------------
+        
         
         RV32_SSP.FETCH.IMEM.MEM[20] <= {12'd100,x0,F3_ADD_SUB,x10,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[21] <= {12'd110,x0,F3_ADD_SUB,x11,OP_IMM};
@@ -253,9 +246,9 @@ begin
         RV32_SSP.FETCH.IMEM.MEM[28] <= {12'd180,x0,F3_ADD_SUB,x18,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[29] <= {12'd190,x0,F3_ADD_SUB,x19,OP_IMM};
         
-        //-------------------------
+        
         // Function Body @ 200
-        //-------------------------
+        
         
         RV32_SSP.FETCH.IMEM.MEM[200] <= {12'd200,x0,F3_ADD_SUB,x20,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[201] <= {12'd210,x0,F3_ADD_SUB,x21,OP_IMM};
@@ -266,9 +259,9 @@ begin
         // JALR x29,0(x26)
         RV32_SSP.FETCH.IMEM.MEM[205] <= {12'd0,x26,F3_ADD_SUB,x29,JALR};
         
-        //-------------------------
+        
         // Must Flush
-        //-------------------------
+        
         
         RV32_SSP.FETCH.IMEM.MEM[206] <= {12'd111,x0,F3_ADD_SUB,x1,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[207] <= {12'd222,x0,F3_ADD_SUB,x2,OP_IMM};
@@ -281,9 +274,9 @@ begin
         RV32_SSP.FETCH.IMEM.MEM[214] <= {12'd999,x0,F3_ADD_SUB,x9,OP_IMM};
         RV32_SSP.FETCH.IMEM.MEM[215] <= {12'd123,x0,F3_ADD_SUB,x10,OP_IMM};
         
-        //-------------------------
+        
         // Remaining Memory = NOP
-        //-------------------------
+        
         
         for(k=216;k<256;k=k+1)
         begin
@@ -292,18 +285,17 @@ begin
         
       end
 
-//====================== ==========================================================
 // RESET GENERATION
-//================================================================================
+
 initial
 begin
     reset = 1;              // Assert reset
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
+
 // SIMULATION END
-//================================================================================
+
 initial
 begin
     #400 $finish;

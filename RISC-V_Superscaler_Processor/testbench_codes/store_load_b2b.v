@@ -1,17 +1,7 @@
 `timescale 1ns / 1ps
-
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: ALU operation verification without hazards
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Functional Test
-//================================================================================
-
 module RV32I_SSP_TB;
 
-//================================================================================
 // CLOCK AND RESET
-//================================================================================
 reg clk1;
 reg clk2;
 reg reset;
@@ -142,9 +132,9 @@ begin
     end
 end
 
-//================================================================================
+ 
 // MEMORY INITIALIZATION AND ALU TEST SETUP
-//================================================================================
+ 
 initial 
 begin
     // Initialize all instruction memory with NOP
@@ -152,10 +142,6 @@ begin
     begin
         RV32_SSP.FETCH.IMEM.MEM[j] <= NOP;
     end
-//    for(i = 0; i < 32; i = i + 1)
-//        begin
-//            RV32_SSP.DECODE.RF.REG[i] <= 0;
-//        end
     #1;
         RV32_SSP.DECODE.RF.REG[x20] = 0;      // base
  
@@ -185,11 +171,9 @@ begin
         // LHU source
         RV32_SSP.MEM_STAGE_B.dmem.MEM[24] = 8'hFF;
         RV32_SSP.MEM_STAGE_B.dmem.MEM[25] = 8'h7F;
-        
-        //==================================================
+                
         // LOAD STORE LOAD STORE ...
-        //==================================================
-        
+               
         // LB  x1,4(x20)
         RV32_SSP.FETCH.IMEM.MEM[0]  <= {12'd4 ,x20,F3_LB ,x1 ,LOAD};
         
@@ -226,23 +210,18 @@ begin
         // SW  x26,60(x20)
         RV32_SSP.FETCH.IMEM.MEM[11] <= {7'd1,x26,x20,F3_SW,5'd28,STORE};   // 60
         
-        
-        
-        
         end
 
-//====================== ==========================================================
 // RESET GENERATION
-//================================================================================
+ 
 initial
 begin 
     reset = 1;              // Assert reset
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
 // SIMULATION END
-//================================================================================
+ 
 initial
 begin
 

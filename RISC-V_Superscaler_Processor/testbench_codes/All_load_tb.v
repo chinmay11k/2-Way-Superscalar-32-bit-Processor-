@@ -1,17 +1,10 @@
 `timescale 1ns / 1ps
 
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: ALU operation verification without hazards
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Functional Test
-//================================================================================
-
 module RV32I_SSP_TB;
 
-//================================================================================
+
 // CLOCK AND RESET
-//================================================================================
+
 reg clk1;
 reg clk2;
 reg reset;
@@ -122,7 +115,7 @@ RV32_top RV32_SSP(
          x31 = 5'b11111;
 
 // CLOCK GENERATION (2 Phase Clocks for Superscaler)
-//================================================================================
+
 initial 
 begin
     clk1 = 0;
@@ -136,9 +129,9 @@ begin
     end
 end
 
-//================================================================================
+
 // MEMORY INITIALIZATION AND ALU TEST SETUP
-//================================================================================
+
 initial 
 begin
     // Initialize all instruction memory with NOP
@@ -150,54 +143,48 @@ begin
         begin
             RV32_SSP.DECODE.RF.REG[i] <= i;
         end
-// Clear entire memory first
+        // Clear entire memory first
         for(i=0;i<128;i=i+1)
             RV32_SSP.MEM_STAGE_B.dmem.MEM[i] = 8'h00;
-        
-        // --------------------------------------------------
+               
         // Address 4 : LB/LBU negative test
         // value = 0x80
-        // --------------------------------------------------
-        RV32_SSP.MEM_STAGE_B.dmem.MEM[4] = 8'h80;
         
-        // --------------------------------------------------
+        RV32_SSP.MEM_STAGE_B.dmem.MEM[4] = 8'h80;
+                
         // Address 8 : LH/LHU negative test
         // value = 16'h8001
         // little endian
-        // --------------------------------------------------
+        
         RV32_SSP.MEM_STAGE_B.dmem.MEM[8] = 8'h01;
         RV32_SSP.MEM_STAGE_B.dmem.MEM[9] = 8'h80;
-        
-        // --------------------------------------------------
+                
         // Address 12 : LW test
         // value = 32'hDEADBEEF
         // little endian
-        // --------------------------------------------------
+        
         RV32_SSP.MEM_STAGE_B.dmem.MEM[12] = 8'hEF;
         RV32_SSP.MEM_STAGE_B.dmem.MEM[13] = 8'hBE;
         RV32_SSP.MEM_STAGE_B.dmem.MEM[14] = 8'hAD;
         RV32_SSP.MEM_STAGE_B.dmem.MEM[15] = 8'hDE;
-        
-        // --------------------------------------------------
+                
         // Address 16 : LB positive test
         // value = 0x7F
-        // --------------------------------------------------
+        
         RV32_SSP.MEM_STAGE_B.dmem.MEM[16] = 8'h7F;
         
-        // --------------------------------------------------
         // Address 20 : LH positive test
         // value = 16'h7FFF
         // little endian
-        // --------------------------------------------------
+        
         RV32_SSP.MEM_STAGE_B.dmem.MEM[20] = 8'hFF;
         RV32_SSP.MEM_STAGE_B.dmem.MEM[21] = 8'h7F;        RV32_SSP.DECODE.RF.REG[x20] = 0;
-        
-        
+                
         RV32_SSP.DECODE.RF.REG[20] <= 0;
 
-        // ------------------------------------------------------------------
+        
         // EXPECTED RESULTS
-        // ------------------------------------------------------------------
+        
         //
         // x3  = LB  from addr 4  = 0xFFFFFF80
         // x4  = LBU from addr 4  = 0x00000080
@@ -211,9 +198,9 @@ begin
         //
         // x9  = LH  from addr 20 = 0x00007FFF
         //
-        // ------------------------------------------------------------------
+        
         // PROGRAM (NO HAZARDS)
-        // ------------------------------------------------------------------
+        
         
         // LB x3,4(x20)
         RV32_SSP.FETCH.IMEM.MEM[0]  <= {12'd4 ,x20,F3_LB ,x3 ,LOAD};
@@ -258,18 +245,17 @@ begin
         RV32_SSP.FETCH.IMEM.MEM[13] <= {12'd16,x14,F3_OR,x27,OP_IMM};
                  end
 
-//====================== ==========================================================
 // RESET GENERATION
-//================================================================================
+
 initial
 begin
     reset = 1;              // Assert reset
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
+
 // SIMULATION END
-//================================================================================
+
 initial
 begin
     #400 $finish;
