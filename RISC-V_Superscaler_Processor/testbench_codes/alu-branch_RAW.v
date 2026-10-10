@@ -1,17 +1,7 @@
 `timescale 1ns / 1ps
 
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: ALU operation verification without hazards
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Functional Test
-//================================================================================
-
 module RV32I_SSP_TB;
 
-//================================================================================
-// CLOCK AND RESET
-//================================================================================
 reg clk1;
 reg clk2;
 reg reset;
@@ -122,13 +112,6 @@ RV32_top RV32_SSP(
          x31 = 5'b11111;
 
 // CLOCK GENERATION (2 Phase Clocks for Superscaler)
-parameter JAL_IMM_200 =
-        {
-            1'b0,           // imm[20]
-            10'b0001100001, // imm[10:1]
-            1'b0,           // imm[11]
-            8'b00000000     // imm[19:12]
-        };
 initial 
 begin
     clk1 = 0;
@@ -141,68 +124,133 @@ begin
         #5  clk2 = 0;
     end
 end
-
-//================================================================================
-// MEMORY INITIALIZATION AND ALU TEST SETUP
-//================================================================================
-initial 
-begin
-    // Initialize all instruction memory with NOP
-    for(j = 0; j < 256; j = j + 1)
-    begin
-        RV32_SSP.FETCH.IMEM.MEM[j] <= NOP;
-    end
-    for(i = 0; i < 32; i = i + 1)
-        begin
-            RV32_SSP.DECODE.RF.REG[i] <= 0;
-        end
- //============================================================
-        // EXPECTED RESULTS
-        //============================================================
-        //
-        // x3 = 32'h12345000      (LUI)
-        //
-        // x4 = PC(1)+32'h00012000
-        //
-        // x5 = 32'hABCDE000      (LUI)
-        //
-        // x6 = PC(3)+32'h00034000
-        //
-        //============================================================
-        // PROGRAM
-        //============================================================
-        
-        // LUI x3,0x12345
-        RV32_SSP.FETCH.IMEM.MEM[0] <= {20'h12345,x3,LUI};
-        
-        // AUIPC x4,0x00012
-        RV32_SSP.FETCH.IMEM.MEM[2] <= {20'h00012,x4,AUIPC};
-        
-        // LUI x5,0xABCDE
-        RV32_SSP.FETCH.IMEM.MEM[1] <= {20'hABCDE,x5,LUI};
-        
-        // AUIPC x6,0x00034
-        RV32_SSP.FETCH.IMEM.MEM[3] <= {20'h00034,x6,AUIPC};
-        
-        // NOPs
-        for(k=4;k<256;k=k+1)
-        begin
-            RV32_SSP.FETCH.IMEM.MEM[k] <= NOP;
-        end 
-              end
-
-//====================== ==========================================================
-// RESET GENERATION
-//================================================================================
+parameter JAL_IMM_1 =
+{
+    1'b0,           // imm[20]
+    10'b0000000001, // imm[10:1]
+    1'b0,           // imm[11]
+    8'b00000000     // imm[19:12]
+};
 initial
 begin
+
+for(i=0;i<32;i=i+1)
+begin
+    RV32_SSP.DECODE.RF.REG[i] = i;
+end
+for(i=0;i<32;i=i+1)
+begin
+    RV32_SSP.DECODE.RF.REG[i] = i;
+end
+
+// Expected
+// x1  = 11
+// BEQ x1,x12  -> NOT TAKEN
+//
+// x2  = 15
+// BNE x2,x2   -> NOT TAKEN
+//
+// x3  = 19
+// BLT x3,x3   -> NOT TAKEN
+//
+// x4  = 23
+// BGE x4,x4   -> TAKEN (target=next)
+//
+// x5  = 27
+// JAL target = next instruction
+//
+// x6  = 31
+// JALR target = x6 + 1
+//
+// RAW:
+//
+// 0  -> 6   ALU -> BRANCH compare
+//
+// 7  -> 11  ALU -> BRANCH compare
+//
+// 12 -> 14  ALU -> BRANCH compare
+//
+// 15 -> 16  ALU -> BRANCH compare
+//
+// 17 -> 23  ALU -> JAL immediate target
+//
+// 24 -> 28  ALU -> JALR rs1 target
+//
+//----------------------------------------------------
+// 0 : x1=11
+//----------------------------------------------------
+
+RV32_SSP.FETCH.IMEM.MEM[0] <= {F7_ADD,x6,x5,F3_ADD_SUB,x1,OP};
+
+RV32_SSP.FETCH.IMEM.MEM[1] <= {F7_ADD,x18,x17,F3_ADD_SUB,x21,OP};
+RV32_SSP.FETCH.IMEM.MEM[2] <= {F7_ADD,x20,x19,F3_ADD_SUB,x22,OP};
+RV32_SSP.FETCH.IMEM.MEM[3] <= {F7_ADD,x22,x21,F3_ADD_SUB,x23,OP};
+RV32_SSP.FETCH.IMEM.MEM[4] <= {F7_ADD,x24,x23,F3_ADD_SUB,x24,OP};
+RV32_SSP.FETCH.IMEM.MEM[5] <= {F7_ADD,x26,x25,F3_ADD_SUB,x25,OP};
+
+// 6 : BEQ x1,x12 (11!=12)
+RV32_SSP.FETCH.IMEM.MEM[6] <= {7'd0,x12,x1,F3_BEQ,5'd1,BRANCH};
+
+// 7 : x2=15
+
+RV32_SSP.FETCH.IMEM.MEM[7] <= {F7_ADD,x8,x7,F3_ADD_SUB,x2,OP};
+
+RV32_SSP.FETCH.IMEM.MEM[8]  <= {F7_ADD,x28,x27,F3_ADD_SUB,x26,OP};
+RV32_SSP.FETCH.IMEM.MEM[9]  <= {F7_ADD,x30,x29,F3_ADD_SUB,x27,OP};
+RV32_SSP.FETCH.IMEM.MEM[10] <= {F7_ADD,x18,x11,F3_ADD_SUB,x28,OP};
+
+// 11 : BNE x2,x2
+RV32_SSP.FETCH.IMEM.MEM[11] <= {7'd0,x2,x2,F3_BNE,5'd1,BRANCH};
+
+// 12 : x3=19
+
+RV32_SSP.FETCH.IMEM.MEM[12] <= {F7_ADD,x10,x9,F3_ADD_SUB,x3,OP};
+
+RV32_SSP.FETCH.IMEM.MEM[13] <= {F7_ADD,x22,x21,F3_ADD_SUB,x29,OP};
+
+// 14 : BLT x3,x3
+RV32_SSP.FETCH.IMEM.MEM[14] <= {7'd0,x3,x3,F3_BLT,5'd1,BRANCH};
+
+// 15 : x4=23
+
+RV32_SSP.FETCH.IMEM.MEM[15] <= {F7_ADD,x12,x11,F3_ADD_SUB,x4,OP};
+
+// 16 : BGE x4,x4
+RV32_SSP.FETCH.IMEM.MEM[16] <= {7'd0,x4,x4,F3_BGE,5'd1,BRANCH};
+
+// JUMP TESTS
+
+// 17 : x5=27
+RV32_SSP.FETCH.IMEM.MEM[17] <= {F7_ADD,x14,x13,F3_ADD_SUB,x5,OP};
+
+RV32_SSP.FETCH.IMEM.MEM[18] <= {F7_ADD,x24,x17,F3_ADD_SUB,x30,OP};
+RV32_SSP.FETCH.IMEM.MEM[19] <= {F7_ADD,x25,x18,F3_ADD_SUB,x29,OP};
+RV32_SSP.FETCH.IMEM.MEM[20] <= {F7_ADD,x26,x19,F3_ADD_SUB,x28,OP};
+RV32_SSP.FETCH.IMEM.MEM[21] <= {F7_ADD,x27,x20,F3_ADD_SUB,x27,OP};
+RV32_SSP.FETCH.IMEM.MEM[22] <= {F7_ADD,x28,x21,F3_ADD_SUB,x26,OP};
+
+// 23 : JAL x31,+1
+// use your J-type encoding for imm=1
+RV32_SSP.FETCH.IMEM.MEM[23] <= {JAL_IMM_1,x31,JAL};
+
+// 24 : x6=31
+
+RV32_SSP.FETCH.IMEM.MEM[24] <= {F7_ADD,x16,x15,F3_ADD_SUB,x6,OP};
+
+RV32_SSP.FETCH.IMEM.MEM[25] <= {F7_ADD,x20,x19,F3_ADD_SUB,x25,OP};
+RV32_SSP.FETCH.IMEM.MEM[26] <= {F7_ADD,x22,x21,F3_ADD_SUB,x24,OP};
+RV32_SSP.FETCH.IMEM.MEM[27] <= {F7_ADD,x24,x23,F3_ADD_SUB,x23,OP};
+
+
+end
+
+
+initial
+begin 
     reset = 1;              // Assert reset
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
-// SIMULATION END
-//================================================================================
 initial
 begin
 

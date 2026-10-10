@@ -1,17 +1,8 @@
 `timescale 1ns / 1ps
 
-//================================================================================
-// RV32I SUPERSCALER PROCESSOR TESTBENCH
-// Purpose: ALU operation verification without hazards
-// ISA: RISC-V 32-bit (RV32I)
-// Test Type: ALU Functional Test
-//================================================================================
 
 module RV32I_SSP_TB;
 
-//================================================================================
-// CLOCK AND RESET
-//================================================================================
 reg clk1;
 reg clk2;
 reg reset;
@@ -122,7 +113,13 @@ RV32_top RV32_SSP(
          x31 = 5'b11111;
 
 // CLOCK GENERATION (2 Phase Clocks for Superscaler)
-//================================================================================
+parameter JAL_IMM_200 =
+        {
+            1'b0,           // imm[20]
+            10'b0001100001, // imm[10:1]
+            1'b0,           // imm[11]
+            8'b00000000     // imm[19:12]
+        };
 initial 
 begin
     clk1 = 0;
@@ -136,9 +133,6 @@ begin
     end
 end
 
-//================================================================================
-// MEMORY INITIALIZATION AND ALU TEST SETUP
-//================================================================================
 initial 
 begin
     // Initialize all instruction memory with NOP
@@ -148,56 +142,47 @@ begin
     end
     for(i = 0; i < 32; i = i + 1)
         begin
-            RV32_SSP.DECODE.RF.REG[i] <= i;
+            RV32_SSP.DECODE.RF.REG[i] <= 0;
         end
-    #1;     RV32_SSP.DECODE.RF.REG[23]=-80;
- // Small delay before writing instructions
-    // Expected:
-    // x3  = x13 + 10      = 23      (ADDI)
-    // x4  = (x14 < 20)    = 1       (SLTI)
-    // x5  = (x15 <u 20)   = 1       (SLTIU)
-    // x6  = x16 ^ 12      = 28      (XORI)
-    // x7  = x17 | 8       = 25      (ORI)
-    // x8  = x18 & 7       = 2       (ANDI)
-    // x9  = x19 << 3      = 152     (SLLI)
-    // x10 = x20 >> 2      = 5       (SRLI)
-    // x11 = x21 >>> 2     = 5       (SRAI, positive value)
-    // x12 = x22 + (-5)    = 17      (ADDI negative imm)
-    // x13 = x23 >>> 2 = -80 >>> 2 = -20   
-    // imm[11:0], rs1, funct3, rd, opcode
-    
-    RV32_SSP.FETCH.IMEM.MEM[0] <= {12'd10,  x13, F3_ADD_SUB,  x3,  OP_IMM};      // ADDI  x3,  x13, 10
-    RV32_SSP.FETCH.IMEM.MEM[1] <= {12'd20,  x14, F3_SLT,      x4,  OP_IMM};      // SLTI  x4,  x14, 20
-    RV32_SSP.FETCH.IMEM.MEM[2] <= {12'd20,  x15, F3_SLTU,     x5,  OP_IMM};      // SLTIU x5,  x15, 20
-    RV32_SSP.FETCH.IMEM.MEM[3] <= {12'd12,  x16, F3_XOR,      x6,  OP_IMM};      // XORI  x6,  x16, 12
-    RV32_SSP.FETCH.IMEM.MEM[4] <= {12'd8,   x17, F3_OR,       x7,  OP_IMM};      // ORI   x7,  x17, 8
-    RV32_SSP.FETCH.IMEM.MEM[5] <= {12'd7,   x18, F3_AND,      x8,  OP_IMM};      // ANDI  x8,  x18, 7
-    
-    // Shift-immediate instructions
-    RV32_SSP.FETCH.IMEM.MEM[6] <= {{7'b0000000,5'd3}, x19, F3_SLL,      x9,  OP_IMM}; // SLLI x9,  x19, 3
-    RV32_SSP.FETCH.IMEM.MEM[7] <= {{7'b0000000,5'd2}, x20, F3_SRL_SRA, x10, OP_IMM}; // SRLI x10, x20, 2
-    RV32_SSP.FETCH.IMEM.MEM[8] <= {{7'b0100000,5'd2}, x21, F3_SRL_SRA, x11, OP_IMM}; // SRAI x11, x21, 2
-    
-    RV32_SSP.FETCH.IMEM.MEM[9] <= {12'hFFB, x22, F3_ADD_SUB, x12, OP_IMM}; // ADDI x12, x22, -5    
-    RV32_SSP.FETCH.IMEM.MEM[10] <= {{7'b0100000,5'd2}, x23, F3_SRL_SRA, x13, OP_IMM}; // SRAI x13, x23, 2
-    // Fill remaining instructions with NOPs
-    end
+        // EXPECTED RESULTS
+        // x3 = 32'h12345000      (LUI)
+        //
+        // x4 = PC(1)+32'h00012000
+        //
+        // x5 = 32'hABCDE000      (LUI)
+        //
+        // x6 = PC(3)+32'h00034000
+        //
+        
+        // LUI x3,0x12345
+        RV32_SSP.FETCH.IMEM.MEM[0] <= {20'h12345,x3,LUI};
+        
+        // AUIPC x4,0x00012
+        RV32_SSP.FETCH.IMEM.MEM[2] <= {20'h00012,x4,AUIPC};
+        
+        // LUI x5,0xABCDE
+        RV32_SSP.FETCH.IMEM.MEM[1] <= {20'hABCDE,x5,LUI};
+        
+        // AUIPC x6,0x00034
+        RV32_SSP.FETCH.IMEM.MEM[3] <= {20'h00034,x6,AUIPC};
+        
+        // NOPs
+        for(k=4;k<256;k=k+1)
+        begin
+            RV32_SSP.FETCH.IMEM.MEM[k] <= NOP;
+        end 
+              end
 
-//================================================================================
-// RESET GENERATION
-//================================================================================
 initial
 begin
     reset = 1;              // Assert reset
     #30 reset = 0;          // Release reset after 30 ns
 end
 
-//================================================================================
-// SIMULATION END
-//================================================================================
 initial
 begin
-    #500 $finish;
+
+    #250 $finish;
 end
 
 endmodule
