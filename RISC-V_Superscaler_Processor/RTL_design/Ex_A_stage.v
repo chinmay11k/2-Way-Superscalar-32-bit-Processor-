@@ -51,7 +51,7 @@ begin
     next_pc         <= 32'd0;
 end
 
-else //if(stall_EX == 0)
+else
 begin
 
     EX_MEM_IR_A     <= ID_EX_IR_A;

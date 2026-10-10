@@ -201,37 +201,17 @@ function [31:0] generate_imm;
     begin
 
         case(inst_type)
-
-            //---------------------------------
-            // R
-            //---------------------------------
-
             TYPE_R:
                 generate_imm = 32'd0;
-
-            //---------------------------------
-            // I
-            //---------------------------------
-
             TYPE_I:
                 generate_imm =
                 {{20{inst[31]}},
                   inst[31:20]};
-
-            //---------------------------------
-            // S
-            //---------------------------------
-
             TYPE_S:
                 generate_imm =
                 {{20{inst[31]}},
                   inst[31:25],
                   inst[11:7]};
-
-            //---------------------------------
-            // B
-            //---------------------------------
-
             TYPE_B:
                 generate_imm =
                 {{19{inst[31]}},
@@ -240,20 +220,10 @@ function [31:0] generate_imm;
                   inst[30:25],
                   inst[11:8],
                   1'b0};
-
-            //---------------------------------
-            // U
-            //---------------------------------
-
             TYPE_U:
                 generate_imm =
                 {inst[31:12],
                  12'b0};
-
-            //---------------------------------
-            // J
-            //---------------------------------
-
             TYPE_J:
                 generate_imm =
                 {{11{inst[31]}},
@@ -262,7 +232,6 @@ function [31:0] generate_imm;
                   inst[20],
                   inst[30:21],
                   1'b0};
-
             default:
                 generate_imm = 32'd0;
 
@@ -307,7 +276,6 @@ task issue_A;
 
 endtask
 
-
 // assign pipe B
 
 task issue_B;
@@ -324,7 +292,6 @@ task issue_B;
         ID_EX_PC_B   <= pc;
         ID_EX_X0_B   <= x0;
         ID_EX_X1_B   <= x1;
-//        ID_EX_IMM_B  <= {{20{inst[31]}},inst[31:20]};
         ID_EX_IMM_B <= generate_imm(inst, inst_type);
         ID_EX_TYPE_B <= inst_type;
         ID_EX_AGE_B <= age;

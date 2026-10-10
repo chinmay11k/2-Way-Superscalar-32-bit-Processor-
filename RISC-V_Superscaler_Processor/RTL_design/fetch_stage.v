@@ -52,25 +52,11 @@ begin
         IF_ID_IR_1 <= inst1;
 
     end
-    else if(stall_IF)
-    begin
-
-        // stall_IF: hold all outputs and PC, do not advance
-
-    end
+    
     else if(hazard_ID_stall)
     begin
 
-        // ID-ID hazard: present inst1 in slot1 and NOP in slot0,
-        // advance PC by 4 so inst1 becomes inst0 next cycle.
         IF_ID_IR_0 <= NOP_INST;
-//        IF_ID_IR_1 <= inst1;
-
-//        IF_ID_PC_0 <= PC;
-//        IF_ID_PC_1 <= PC + 32'd4;
-
-//        // Advance PC by 4 so next cycle fetches inst1 as inst0
-//        PC <= PC + 32'd4;
     end
     else
     begin

@@ -251,7 +251,6 @@ begin
 
     ALUout       = PC + 32'd4;
     branch_taken = 1'b1;
-//    next_pc      = PC +IMM;
     next_pc      = PC + IMM;
 
 end

@@ -16,17 +16,9 @@ output reg [2:0]  MEM_WB_TYPE_B,
 output reg        MEM_WB_AGE_B
 );
 
-//====================================================
-// OPCODES
-//====================================================
-
 parameter
     LOAD     = 7'b0000011,
     STORE    = 7'b0100011,
-
-//====================================================
-// TYPES
-//====================================================
 
     TYPE_R   = 3'b000,
     TYPE_I   = 3'b001,
@@ -36,19 +28,12 @@ parameter
     TYPE_J   = 3'b101,
     TYPE_NOP = 3'b111;
 
-//====================================================
-// INTERNAL WIRES
-//====================================================
-
 wire [6:0] opcode;
 wire [2:0] funct3;
 
 assign opcode = EX_MEM_IR_B[6:0];
 assign funct3 = EX_MEM_IR_B[14:12];
 
-//====================================================
-// DATA MEMORY WIRES
-//====================================================
 
 wire        mem_write;
 wire        mem_read;
@@ -57,25 +42,15 @@ wire [31:0] mem_addr;
 wire [31:0] mem_write_data;
 wire [31:0] mem_read_data;
 
-//====================================================
-// LOAD / STORE WIRES
-//====================================================
 
 wire [31:0] load_data;
 wire [31:0] store_data;
 
-//====================================================
-// MEMORY CONTROL
-//====================================================
 
 assign mem_read  = (opcode == LOAD);
 assign mem_write = (opcode == STORE) & (~branched);
 
 assign mem_addr = EX_MEM_ALUout_B;
-
-//====================================================
-// STORE MASKER
-//====================================================
 
 STORE_MASKER st_mask(
     .store_data(EX_MEM_X1_B),
@@ -86,9 +61,6 @@ STORE_MASKER st_mask(
 
 assign mem_write_data = store_data;
 
-//====================================================
-// DATA MEMORY
-//====================================================
 
 data_mem dmem(
     .clk(clk),
@@ -99,9 +71,6 @@ data_mem dmem(
     .read_data(mem_read_data)
 );
 
-//====================================================
-// LOAD EXTENDER
-//====================================================
 
 LOAD_EXTENDER ld_ext(
     .mem_data(mem_read_data),
@@ -110,9 +79,6 @@ LOAD_EXTENDER ld_ext(
     .load_data(load_data)
 );
 
-//====================================================
-// MEM STAGE
-//====================================================
 
 always @(posedge clk)
 begin
